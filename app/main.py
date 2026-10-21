@@ -6,8 +6,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.controllers.auth_controller import router as auth_router
+from app.controllers.user_controller import router as user_router
 from app.database import Base, engine
-from app.exceptions import EmailAlreadyExistsError
+from app.exceptions import AuthenticationRequiredError, EmailAlreadyExistsError, InvalidCredentialsError
 from app.models.user import User  # Registra o modelo no metadata antes de create_all.
 
 
@@ -19,6 +20,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="TaskLab API", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(user_router)
+
+
+@app.exception_handler(InvalidCredentialsError)
+async def invalid_credentials_handler(request: Request, error: InvalidCredentialsError):
+    return JSONResponse(
+        status_code=401, content={"detail": "E-mail ou senha inválidos."},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+@app.exception_handler(AuthenticationRequiredError)
+async def authentication_required_handler(request: Request, error: AuthenticationRequiredError):
+    return JSONResponse(
+        status_code=401, content={"detail": "Autenticação necessária ou token inválido."},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 @app.exception_handler(EmailAlreadyExistsError)
