@@ -7,9 +7,11 @@ from fastapi.responses import JSONResponse
 
 from app.controllers.auth_controller import router as auth_router
 from app.controllers.user_controller import router as user_router
+from app.controllers.task_controller import router as task_router
 from app.database import Base, engine
 from app.exceptions import AuthenticationRequiredError, EmailAlreadyExistsError, InvalidCredentialsError
 from app.models.user import User  # Registra o modelo no metadata antes de create_all.
+from app.models.task import Task  # Registra a tabela de tarefas sem recriar as existentes.
 
 
 @asynccontextmanager
@@ -21,6 +23,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="TaskLab API", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(task_router)
 
 
 @app.exception_handler(InvalidCredentialsError)

@@ -3,7 +3,8 @@
 API didática para aulas de testes de software, desenvolvida com Python e FastAPI.
 Disponibiliza a verificação de saúde e o cadastro público de usuários com persistência em SQLite.
 Inclui login em JSON e identificação do usuário autenticado com JWT Bearer.
-Tarefas, refresh token e logout no servidor ficam para etapas futuras.
+Inclui criação e listagem de tarefas por usuário. Consulta de tarefa por ID, edição,
+conclusão, exclusão, refresh token e logout no servidor ficam para etapas futuras.
 
 ## Preparação do ambiente no Windows
 
@@ -81,6 +82,7 @@ Para encerrar, pressione `Ctrl+C`.
 - Cadastro: `POST http://127.0.0.1:8000/auth/register`.
 - Login: `POST http://127.0.0.1:8000/auth/login`.
 - Usuário autenticado: `GET http://127.0.0.1:8000/users/me`.
+- Tarefas: `POST` e `GET http://127.0.0.1:8000/tasks` (exigem autenticação).
 
 ## Configuração e banco de dados
 
@@ -216,3 +218,88 @@ A assinatura JWT **não criptografa seu conteúdo**: o payload pode ser lido e n
 conter senhas ou outros segredos. O token expira após o prazo configurado (60 minutos
 por padrão). Um futuro logout nos clientes descartará o token localmente, mas ele
 continuará válido até expirar, pois ainda não existe revogação no servidor.
+
+## Criação e listagem de tarefas
+
+Após o login, use **Authorize** no Swagger para enviar o token Bearer.
+Em `POST /tasks`, envie:
+
+```json
+{
+  "title": "  Estudar testes de software  ",
+  "description": "Revisar os cenários da aula."
+}
+```
+
+A resposta é HTTP 201, com a tarefa pendente (`completed: false`):
+
+```json
+{
+  "id": 1,
+  "title": "Estudar testes de software",
+  "description": "Revisar os cenários da aula.",
+  "completed": false,
+  "created_at": "2026-10-21T15:00:00Z",
+  "updated_at": "2026-10-21T15:00:00Z"
+}
+```
+
+IDs e datas são ilustrativos. Os timestamps são retornados em ISO 8601 com indicação
+de UTC (`Z`). O título é obrigatório e deve ter de 3 a 150 caracteres após remover
+espaços das extremidades. A descrição aceita até 500 caracteres; omitida ou enviada
+como `null`, resulta em `null`. Não há remoção de espaços da descrição.
+Campos extras são rejeitados com 422, incluindo `id`, `user_id`, `completed`,
+`created_at` e `updated_at`.
+
+`GET /tasks` retorna HTTP 200 com uma lista:
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Estudar testes de software",
+    "description": "Revisar os cenários da aula.",
+    "completed": false,
+    "created_at": "2026-10-21T15:00:00Z",
+    "updated_at": "2026-10-21T15:00:00Z"
+  }
+]
+```
+
+Sem tarefas, retorna `[]`. A consulta filtra no banco pelo usuário autenticado e
+ordena por `created_at` decrescente, com desempate por `id` decrescente. O proprietário
+vem exclusivamente do token validado; cada usuário vê apenas suas próprias tarefas.
+As respostas não expõem `user_id`.
+
+O fluxo é Controller → TaskService → TaskRepository → SQLite:
+
+- `app/controllers/task_controller.py`: exige autenticação, recebe a entrada e usa `current_user.id`.
+- `app/schemas/task_schema.py`: valida a entrada e formata a resposta com timestamps UTC.
+- `app/services/task_service.py`: encaminha criação e listagem ao repository.
+- `app/repositories/task_repository.py`: persiste com commit/refresh e rollback em falhas; filtra e ordena a consulta.
+- `app/models/task.py`: define a tabela `tasks`, com chave estrangeira e índice em `user_id`.
+
+O modelo é registrado antes de `create_all`: ao reiniciar, a tabela ausente é criada
+sem apagar tabelas ou registros existentes.
+
+### Verificações manuais de tarefas no Swagger
+
+1. Autentique o usuário A e execute `GET /tasks`: em uma conta nova, espere `[]`.
+2. Crie tarefas com e sem descrição. Espere 201, `completed: false` e descrição omitida como `null`.
+3. Liste novamente: confira as tarefas mais recentes primeiro e os timestamps em UTC.
+4. Reinicie a API e liste novamente para conferir a persistência.
+5. Cadastre e autentique o usuário B, substituindo o token em **Authorize**: suas tarefas devem estar isoladas das de A.
+6. Experimente os cenários abaixo em `POST /tasks`.
+
+| Entrada | Resultado esperado |
+| --- | --- |
+| Título `ab` | 422 |
+| Título `abc` ou `  abc  ` | 201, título salvo como `abc` |
+| Título apenas com espaços | 422 |
+| Título com 151 caracteres | 422 |
+| Descrição com 501 caracteres | 422 |
+| Envio de `user_id` ou `completed` | 422 |
+| POST ou GET sem token, ou com token inválido | 401 com `WWW-Authenticate: Bearer` |
+
+Para testar ausência de autenticação, remova o token em **Authorize**. A opção de
+logout do Swagger apenas remove o token do cliente, sem revogá-lo no servidor.
