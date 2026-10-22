@@ -77,6 +77,24 @@ Para encerrar, pressione `Ctrl+C`.
 
 ## Endereços locais
 
+### CORS para o frontend local
+
+A API permite explicitamente as origens `http://127.0.0.1:5500` e
+`http://localhost:5500`, com os métodos GET, POST, PUT, PATCH, DELETE e OPTIONS
+e os cabeçalhos Authorization e Content-Type. O `CORSMiddleware` está registrado
+uma única vez em `app/main.py`, sem wildcard nas origens.
+
+`allow_credentials=False`: o frontend envia JWT pelo cabeçalho Authorization e
+não usa cookies de autenticação. A configuração é fixa no código; não há variável
+CORS no `.env`. Reinicie a API após esta alteração.
+
+Um preflight OPTIONS de uma origem permitida retorna 200 com
+`Access-Control-Allow-Origin` correspondente. Uma origem não permitida recebe
+400 no preflight e não recebe esse cabeçalho. CORS controla o acesso pelo navegador;
+as rotas protegidas continuam exigindo JWT, inclusive para origens permitidas.
+
+### Rotas
+
 - Saúde da API: <http://127.0.0.1:8000/health> — `GET` público, com HTTP 200 e resposta `{"status": "ok"}`.
 - Documentação interativa (Swagger UI): <http://127.0.0.1:8000/docs>.
 - Cadastro: `POST http://127.0.0.1:8000/auth/register`.
