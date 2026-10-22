@@ -3,8 +3,8 @@
 API didática para aulas de testes de software, desenvolvida com Python e FastAPI.
 Disponibiliza a verificação de saúde e o cadastro público de usuários com persistência em SQLite.
 Inclui login em JSON e identificação do usuário autenticado com JWT Bearer.
-Inclui criação e listagem de tarefas por usuário. Consulta de tarefa por ID, edição,
-conclusão, exclusão, refresh token e logout no servidor ficam para etapas futuras.
+Inclui criação, listagem, consulta, edição, conclusão e exclusão de tarefas por usuário.
+Refresh token, reabertura de tarefas e logout no servidor ficam para etapas futuras.
 
 ## Preparação do ambiente no Windows
 
@@ -83,6 +83,12 @@ Para encerrar, pressione `Ctrl+C`.
 - Login: `POST http://127.0.0.1:8000/auth/login`.
 - Usuário autenticado: `GET http://127.0.0.1:8000/users/me`.
 - Tarefas: `POST` e `GET http://127.0.0.1:8000/tasks` (exigem autenticação).
+- Consulta por ID: `GET http://127.0.0.1:8000/tasks/{id}` (exige autenticação).
+- Edição: `PUT http://127.0.0.1:8000/tasks/{id}`.
+- Conclusão: `PATCH http://127.0.0.1:8000/tasks/{id}/complete`.
+- Exclusão: `DELETE http://127.0.0.1:8000/tasks/{id}`.
+
+Todas as operações de tarefas exigem autenticação Bearer.
 
 ## Configuração e banco de dados
 
@@ -221,6 +227,27 @@ continuará válido até expirar, pois ainda não existe revogação no servidor
 
 ## Criação e listagem de tarefas
 
+### Consulta de uma tarefa por ID
+
+No Swagger (`/docs`), faça login e cole o token em **Authorize**. Crie uma tarefa
+com `POST /tasks` ou use o ID de uma tarefa retornada por `GET /tasks`.
+Abra `GET /tasks/{id}`, clique em **Try it out**, informe o ID e execute.
+
+- Tarefa do usuário autenticado: HTTP 200 com o mesmo formato de `TaskResponse`
+  mostrado abaixo (sem `user_id` e com timestamps em UTC).
+- ID inexistente ou tarefa de outro usuário: HTTP 404 com
+  `{"detail": "Tarefa não encontrada."}`.
+- Token ausente ou inválido: HTTP 401.
+- ID inválido (não inteiro, menor que 1 ou maior que o limite inteiro de 64 bits
+  do SQLite): HTTP 422.
+
+Para verificar o isolamento, autentique um segundo usuário e consulte o ID criado
+pelo primeiro: o resultado deve ser o mesmo 404 de uma tarefa inexistente.
+O controller encaminha a identidade autenticada ao service, que consulta o repository
+e verifica a propriedade. O handler central converte a exceção de domínio em 404.
+
+### Criar e listar
+
 Após o login, use **Authorize** no Swagger para enviar o token Bearer.
 Em `POST /tasks`, envie:
 
@@ -303,3 +330,56 @@ sem apagar tabelas ou registros existentes.
 
 Para testar ausência de autenticação, remova o token em **Authorize**. A opção de
 logout do Swagger apenas remove o token do cliente, sem revogá-lo no servidor.
+
+## Editar, concluir e excluir tarefas
+
+Faça login e use **Authorize** no Swagger. Crie uma tarefa e copie seu ID.
+
+1. Em `PUT /tasks/{id}`, informe o ID e o JSON:
+
+   ```json
+   {
+     "title": "Estudar testes automatizados",
+     "description": "Implementar testes com pytest"
+   }
+   ```
+
+   Espere HTTP 200 com a tarefa atualizada. O título é obrigatório, aparado e deve
+   conter de 3 a 150 caracteres. A descrição aceita até 500 caracteres; omiti-la
+   ou enviar `null` remove a descrição anterior. O PUT preserva ID, proprietário,
+   `created_at` e `completed`, e atualiza `updated_at`, mesmo se o conteúdo for igual.
+   Campos extras, incluindo `user_id`, `id` e `completed`, retornam 422.
+
+2. Em `PATCH /tasks/{id}/complete`, informe o mesmo ID e execute sem corpo JSON.
+   Espere HTTP 200 com `completed: true` e `updated_at` atualizado. Repita a chamada:
+   espere HTTP 400 com `{"detail": "A tarefa já está concluída."}`. Não há reabertura.
+   Uma tarefa concluída ainda pode ter título e descrição editados, sem mudar seu estado.
+
+3. Em `DELETE /tasks/{id}`, informe o ID e execute. Espere HTTP 204 sem corpo.
+   O registro é removido fisicamente. Consulte ou tente excluir o mesmo ID novamente:
+   espere HTTP 404 com `{"detail": "Tarefa não encontrada."}`.
+
+Nas três operações, tarefas inexistentes e tarefas de outro usuário retornam o mesmo
+404. O repository consulta por ID e proprietário, e o service reutiliza `get_task`
+para verificar o resultado antes de modificar ou excluir. A identificação do
+proprietário vem somente do JWT. Sem autenticação válida, as rotas retornam 401.
+Para verificar o isolamento, crie outra tarefa com A e tente modificá-la com o token
+de B; confirme depois, com A, que os dados permanecem iguais.
+
+## Testes automatizados
+
+As dependências de teste ficam separadas em `requirements-dev.txt`. Execute na raiz:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+`pytest.ini` limita a descoberta à pasta `tests`. A fixture em `tests/conftest.py`
+define um banco SQLite temporário e um segredo exclusivo antes de importar a
+aplicação. Cada teste recebe tabelas limpas nesse banco; o banco da demonstração
+e o `.env` local não são modificados.
+
+`tests/test_tasks.py` verifica edição e validações, conclusão e repetição, exclusão
+física e resposta vazia, persistência entre requisições, isolamento entre usuários,
+autenticação, rotas existentes e os contratos publicados no Swagger.

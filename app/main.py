@@ -9,7 +9,7 @@ from app.controllers.auth_controller import router as auth_router
 from app.controllers.user_controller import router as user_router
 from app.controllers.task_controller import router as task_router
 from app.database import Base, engine
-from app.exceptions import AuthenticationRequiredError, EmailAlreadyExistsError, InvalidCredentialsError
+from app.exceptions import AuthenticationRequiredError, EmailAlreadyExistsError, InvalidCredentialsError, TaskNotFoundError, TaskAlreadyCompletedError
 from app.models.user import User  # Registra o modelo no metadata antes de create_all.
 from app.models.task import Task  # Registra a tabela de tarefas sem recriar as existentes.
 
@@ -55,6 +55,16 @@ async def validation_error_handler(request: Request, error: RequestValidationErr
     return await request_validation_exception_handler(request, RequestValidationError(errors))
 
 
+@app.exception_handler(TaskNotFoundError)
+async def task_not_found_handler(request: Request, error: TaskNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "Tarefa não encontrada."})
+
+
 @app.get("/health", tags=["Infraestrutura"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.exception_handler(TaskAlreadyCompletedError)
+async def task_already_completed_handler(request: Request, error: TaskAlreadyCompletedError):
+    return JSONResponse(status_code=400, content={"detail": "A tarefa já está concluída."})

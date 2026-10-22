@@ -8,3 +8,11 @@ class InvalidCredentialsError(Exception):
 
 class AuthenticationRequiredError(Exception):
     """Autenticação necessária ou token inválido."""
+
+
+class TaskNotFoundError(Exception):
+    """Tarefa não encontrada ou indisponível para o usuário autenticado."""
+
+
+class TaskAlreadyCompletedError(Exception):
+    """A tarefa já está concluída."""

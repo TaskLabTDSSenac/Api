@@ -11,6 +11,10 @@ class TaskCreate(BaseModel):
     description: str | None = Field(default=None, max_length=500)
 
 
+class TaskUpdate(TaskCreate):
+    """Substitui título e descrição, com as mesmas validações da criação."""
+
+
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
