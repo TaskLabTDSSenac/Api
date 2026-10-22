@@ -82,6 +82,7 @@ Para encerrar, pressione `Ctrl+C`.
 - Cadastro: `POST http://127.0.0.1:8000/auth/register`.
 - Login: `POST http://127.0.0.1:8000/auth/login`.
 - Usuário autenticado: `GET http://127.0.0.1:8000/users/me`.
+- Troca de senha: `PATCH http://127.0.0.1:8000/users/me/password`.
 - Tarefas: `POST` e `GET http://127.0.0.1:8000/tasks` (exigem autenticação).
 - Consulta por ID: `GET http://127.0.0.1:8000/tasks/{id}` (exige autenticação).
 - Edição: `PUT http://127.0.0.1:8000/tasks/{id}`.
@@ -368,6 +369,56 @@ de B; confirme depois, com A, que os dados permanecem iguais.
 
 ## Testes automatizados
 
+### Alteração de senha pelo Swagger
+
+Faça login e informe o token em **Authorize**. Em
+`PATCH /users/me/password`, envie:
+
+```json
+{
+  "current_password": "SenhaAtual123",
+  "new_password": "NovaSenha456"
+}
+```
+
+Use a senha atual da conta autenticada. A API identifica a conta exclusivamente
+pelo token; não envie ID, e-mail ou confirmação de senha.
+`current_password` aceita de 1 a 128 caracteres e `new_password` de 8 a 128.
+Espaços são preservados nas duas senhas. Campos extras são rejeitados com 422;
+a confirmação da senha será responsabilidade das interfaces web e mobile.
+
+O sucesso retorna HTTP 200:
+
+```json
+{"detail": "Senha alterada com sucesso."}
+```
+
+Somente `password_hash` (Argon2) e `updated_at` são atualizados. Dados pessoais,
+tarefas e outras contas permanecem intactos. O controller encaminha o usuário
+autenticado ao `UserService`, que verifica a senha atual e a diferença da nova
+senha antes de chamar o `UserRepository`. Falhas de persistência executam rollback.
+Nenhuma senha ou hash é retornado, e os valores recebidos são omitidos dos erros 422,
+inclusive quando estiverem dentro de objetos inválidos. O corpo não é registrado em logs.
+
+| Verificação manual | Resultado esperado |
+| --- | --- |
+| Sem token, token inválido ou expirado | 401 com `WWW-Authenticate: Bearer` |
+| Senha atual incorreta | 400: `Senha atual incorreta.` |
+| Nova senha igual à atual | 400: `A nova senha deve ser diferente da senha atual.` |
+| Nova senha com 7 caracteres | 422 |
+| Nova senha diferente com 8 caracteres e senha atual correta | 200 |
+| Campo obrigatório ausente ou campo extra | 422 |
+| Login com a senha antiga após a troca | 401 |
+| Login com a nova senha | 200 |
+| Consultar perfil e tarefas com o token anterior | 200, dados preservados |
+
+Falhas de validação e de regra de negócio não alteram o hash nem `updated_at`.
+A troca de senha **não invalida tokens já emitidos**: eles continuam válidos até
+a expiração, conforme a política atual sem revogação. Apenas os novos logins
+passam a exigir a nova senha. Não há recuperação de senha, refresh token ou revogação.
+
+### Executar a suíte
+
 As dependências de teste ficam separadas em `requirements-dev.txt`. Execute na raiz:
 
 ```powershell
@@ -383,3 +434,8 @@ e o `.env` local não são modificados.
 `tests/test_tasks.py` verifica edição e validações, conclusão e repetição, exclusão
 física e resposta vazia, persistência entre requisições, isolamento entre usuários,
 autenticação, rotas existentes e os contratos publicados no Swagger.
+
+`tests/test_password_change.py` verifica a troca de senha, erros de validação e
+negócio sem mutações, sigilo dos valores em erros e logs capturados, preservação
+de espaços, autenticação, rollback, logins com senha antiga/nova, manutenção de
+tokens anteriores e preservação dos dados e de outras contas.

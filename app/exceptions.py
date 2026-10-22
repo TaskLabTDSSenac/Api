@@ -16,3 +16,11 @@ class TaskNotFoundError(Exception):
 
 class TaskAlreadyCompletedError(Exception):
     """A tarefa já está concluída."""
+
+
+class IncorrectCurrentPasswordError(Exception):
+    """Senha atual incorreta."""
+
+
+class SamePasswordError(Exception):
+    """A nova senha deve ser diferente da senha atual."""
