@@ -18,10 +18,11 @@ if errorlevel 1 goto erro
 
 echo.
 echo Swagger: http://127.0.0.1:8000/docs
+echo API no emulador Android: http://10.0.2.2:8000
 echo Para encerrar, pressione Ctrl+C.
 echo.
 
-".venv\Scripts\python.exe" -m uvicorn app.main:app --reload
+".venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 if errorlevel 1 goto erro
 exit /b 0
 

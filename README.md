@@ -69,7 +69,7 @@ assim como as demais configurações do `.env`. Se o arquivo não existir, ele �
 Na raiz `Api`, execute:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 A opção `--reload` reinicia o servidor ao alterar o código durante o desenvolvimento.
@@ -77,10 +77,32 @@ Para encerrar, pressione `Ctrl+C`.
 
 ## Endereços locais
 
+### Acesso pelo emulador Android
+
+O `iniciar.bat` escuta na porta 8000 em todas as interfaces (`--host 0.0.0.0`).
+No computador, continue usando `http://127.0.0.1:8000`. No emulador padrão do
+Android Studio, use `http://10.0.2.2:8000`, endereço já configurado no aplicativo
+Flutter para Android. `0.0.0.0` é o endereço de escuta, não a URL do aplicativo.
+
+Execute o aplicativo em modo debug para usar HTTP local; o manifesto de debug
+já permite esse tráfego. A versão release exige HTTPS. O aplicativo Android
+nativo não depende de CORS; a configuração abaixo se aplica ao navegador.
+Reinicie a API após alterar o comando de inicialização. Para conferir o acesso,
+abra `http://10.0.2.2:8000/health` no navegador do emulador e confira
+`{"status":"ok"}`. O endereço de escuta também permite conexões da rede local,
+conforme as regras do firewall do Windows.
+
 ### CORS para o frontend local
 
 A API permite explicitamente as origens `http://127.0.0.1:5500` e
-`http://localhost:5500`, com os métodos GET, POST, PUT, PATCH, DELETE e OPTIONS
+`http://localhost:5500` para o Site, além de `http://127.0.0.1:5501` e
+`http://localhost:5501` para o aplicativo Flutter Web. Execute o Flutter Web
+na porta 5501 (`flutter run -d chrome --web-port=5501`).
+Também estão autorizadas `http://localhost:63942` e `http://127.0.0.1:63942`
+para a sessão local do aplicativo. O Flutter pode escolher uma porta diferente
+a cada execução sem `--web-port`; prefira fixar a porta 5501 para evitar novos
+bloqueios de CORS. A origem inclui a porta: liberar 5501 não libera outras portas.
+São permitidos os métodos GET, POST, PUT, PATCH, DELETE e OPTIONS
 e os cabeçalhos Authorization e Content-Type. O `CORSMiddleware` está registrado
 uma única vez em `app/main.py`, sem wildcard nas origens.
 
