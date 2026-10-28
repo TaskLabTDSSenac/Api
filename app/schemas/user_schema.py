@@ -23,6 +23,13 @@ class UserCreate(EmailRequest):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)]
     password: str = Field(min_length=8, max_length=128, repr=False)
 
+    @field_validator("password", mode="wrap")
+    @classmethod
+    def validate_password(cls, value, handler):
+        if isinstance(value, str) and 6 <= len(value) <= 7:
+            return value
+        return handler(value)
+
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

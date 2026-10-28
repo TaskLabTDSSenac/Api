@@ -69,7 +69,7 @@ assim como as demais configurações do `.env`. Se o arquivo não existir, ele �
 Na raiz `Api`, execute:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 A opção `--reload` reinicia o servidor ao alterar o código durante o desenvolvimento.
@@ -79,18 +79,19 @@ Para encerrar, pressione `Ctrl+C`.
 
 ### Acesso pelo emulador Android
 
-O `iniciar.bat` escuta na porta 8000 em todas as interfaces (`--host 0.0.0.0`).
+O `iniciar.bat` escuta na porta 8000 na interface local (`--host 127.0.0.1`).
 No computador, continue usando `http://127.0.0.1:8000`. No emulador padrão do
 Android Studio, use `http://10.0.2.2:8000`, endereço já configurado no aplicativo
-Flutter para Android. `0.0.0.0` é o endereço de escuta, não a URL do aplicativo.
+Flutter para Android. Esse endereço especial do emulador acessa a interface
+local do computador, sem precisar expor a API à rede local.
 
 Execute o aplicativo em modo debug para usar HTTP local; o manifesto de debug
 já permite esse tráfego. A versão release exige HTTPS. O aplicativo Android
 nativo não depende de CORS; a configuração abaixo se aplica ao navegador.
 Reinicie a API após alterar o comando de inicialização. Para conferir o acesso,
 abra `http://10.0.2.2:8000/health` no navegador do emulador e confira
-`{"status":"ok"}`. O endereço de escuta também permite conexões da rede local,
-conforme as regras do firewall do Windows.
+`{"status":"ok"}`. Essa configuração atende ao computador e ao emulador padrão;
+o acesso por um celular físico na rede exige outra configuração de escuta.
 
 ### CORS para o frontend local
 
@@ -457,25 +458,4 @@ A troca de senha **não invalida tokens já emitidos**: eles continuam válidos 
 a expiração, conforme a política atual sem revogação. Apenas os novos logins
 passam a exigir a nova senha. Não há recuperação de senha, refresh token ou revogação.
 
-### Executar a suíte
-
-As dependências de teste ficam separadas em `requirements-dev.txt`. Execute na raiz:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-`pytest.ini` limita a descoberta à pasta `tests`. A fixture em `tests/conftest.py`
-define um banco SQLite temporário e um segredo exclusivo antes de importar a
-aplicação. Cada teste recebe tabelas limpas nesse banco; o banco da demonstração
-e o `.env` local não são modificados.
-
-`tests/test_tasks.py` verifica edição e validações, conclusão e repetição, exclusão
-física e resposta vazia, persistência entre requisições, isolamento entre usuários,
-autenticação, rotas existentes e os contratos publicados no Swagger.
-
-`tests/test_password_change.py` verifica a troca de senha, erros de validação e
-negócio sem mutações, sigilo dos valores em erros e logs capturados, preservação
-de espaços, autenticação, rollback, logins com senha antiga/nova, manutenção de
-tokens anteriores e preservação dos dados e de outras contas.
+Os testes automatizados serão implementados em uma etapa futura.

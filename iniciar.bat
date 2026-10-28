@@ -1,6 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+set "DATABASE_URL=sqlite:///tasklab.db"
 
 if not exist ".venv\Scripts\python.exe" (
     echo Criando o ambiente virtual...
@@ -22,7 +23,7 @@ echo API no emulador Android: http://10.0.2.2:8000
 echo Para encerrar, pressione Ctrl+C.
 echo.
 
-".venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+".venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 if errorlevel 1 goto erro
 exit /b 0
 

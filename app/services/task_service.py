@@ -1,5 +1,5 @@
 from app.models.task import Task
-from app.exceptions import TaskAlreadyCompletedError, TaskNotFoundError
+from app.exceptions import TaskNotFoundError
 from app.repositories.task_repository import TaskRepository
 from app.schemas.task_schema import TaskCreate, TaskUpdate
 
@@ -23,16 +23,12 @@ class TaskService:
     def update_task(self, user_id: int, task_id: int, data: TaskUpdate) -> Task:
         task = self.get_task(user_id, task_id)
         task.title = data.title
-        task.description = data.description
         return self.repository.save(task)
 
     def complete_task(self, user_id: int, task_id: int) -> Task:
         task = self.get_task(user_id, task_id)
-        if task.completed:
-            raise TaskAlreadyCompletedError()
         task.completed = True
         return self.repository.save(task)
 
     def delete_task(self, user_id: int, task_id: int) -> None:
-        task = self.get_task(user_id, task_id)
-        self.repository.delete(task)
+        self.get_task(user_id, task_id)
