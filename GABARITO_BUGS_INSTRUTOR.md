@@ -132,11 +132,12 @@ Reabra os detalhes para conferir o título persistido. Na criação, o limite de
 
 ## Verificação manual
 
-Por solicitação do instrutor, os testes automatizados e suas configurações foram
-removidos dos projetos. A implementação de testes em código ficará para uma
-etapa futura. Os casos descritos neste gabarito devem ser executados manualmente
-pelas interfaces. Resultados automatizados mencionados anteriormente são históricos;
-as suítes correspondentes não estão mais presentes no projeto.
+Os casos deste gabarito podem ser executados manualmente pelas interfaces.
+A API agora possui apenas o exemplo automatizado CT-02 em `tests/test_cadastro.py`,
+conforme nova solicitação do instrutor. Execute `iniciar_testes.bat`: o caso espera
+422 para senha de 6 caracteres, mas recebe 201 devido ao BUG-01 e falha.
+O banco utilizado pelo teste é temporário e isolado do banco principal.
+As suítes anteriores continuam removidas; nenhum teste foi adicionado ao Site/App.
 
 Para carregar os ajustes, atualize o Site com Ctrl+F5 e faça Hot Restart no
 Flutter; se usar um APK instalado, gere e instale uma nova versão.

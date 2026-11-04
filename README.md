@@ -458,4 +458,34 @@ A troca de senha **não invalida tokens já emitidos**: eles continuam válidos 
 a expiração, conforme a política atual sem revogação. Apenas os novos logins
 passam a exigir a nova senha. Não há recuperação de senha, refresh token ou revogação.
 
-Os testes automatizados serão implementados em uma etapa futura.
+### Teste funcional automatizado: CT-02
+
+Na raiz `Api`, execute `iniciar_testes.bat` (também pode abrir com duplo clique).
+Ele reutiliza a `.venv`, instala as dependências de desenvolvimento e executa
+os testes, mantendo a janela aberta para leitura do resultado.
+
+Para instalar e executar manualmente:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest -v
+```
+
+Não é necessário iniciar o Uvicorn. O `FastAPI TestClient` chama a aplicação
+diretamente. `pytest.ini` organiza a descoberta na pasta `tests` e permite
+importar o pacote `app`.
+
+A fixture `client` em `tests/conftest.py` fornece um cliente reutilizável e
+configura um SQLite temporário exclusivo antes de importar a API. O lifespan
+cria as tabelas nesse banco, e a fixture as limpa após cada caso. O banco
+`tasklab.db` e o `.env` não são alterados; a chave JWT dos testes é temporária.
+Novos testes devem usar essa fixture e evitar importar a aplicação no topo
+dos arquivos, antes de configurar o ambiente isolado.
+
+Há apenas um exemplo: `tests/test_cadastro.py`, **CT-02 — Cadastro com senha
+menor que 8 caracteres**. Ele envia `POST /auth/register` com senha `123456`
+e espera **HTTP 422**, conforme o contrato correto.
+
+Com o defeito intencional atual, a API retorna **201** e o teste aparece como
+**FAILED** (`assert 201 == 422`). Isso demonstra a detecção do defeito; a regra
+de negócio não foi corrigida nem o teste marcado para ignorar a falha.
