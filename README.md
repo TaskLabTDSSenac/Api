@@ -477,7 +477,8 @@ importar o pacote `app`.
 
 A fixture `client` em `tests/conftest.py` fornece um cliente reutilizável e
 configura um SQLite temporário exclusivo antes de importar a API. O lifespan
-cria as tabelas nesse banco, e a fixture as limpa após cada caso. O banco
+cria as tabelas nesse banco. A limpeza ocorre uma única vez antes do primeiro
+teste; os dados permanecem disponíveis para os próximos testes da sessão. O banco
 `tasklab.db` e o `.env` não são alterados; a chave JWT dos testes é temporária.
 Novos testes devem usar essa fixture e evitar importar a aplicação no topo
 dos arquivos, antes de configurar o ambiente isolado.

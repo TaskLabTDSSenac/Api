@@ -14,11 +14,13 @@ def application(tmp_path_factory):
         environment.setenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60")
 
         from app.main import app
-        from app.database import engine
+        from app.database import Base, engine
 
         # Impede executar a limpeza se a engine não for a de testes.
         assert engine.url.database == database.as_posix()
         try:
+            # Limpa somente uma vez, antes do primeiro teste da sessão.
+            Base.metadata.drop_all(bind=engine)
             yield app
         finally:
             engine.dispose()
@@ -26,12 +28,8 @@ def application(tmp_path_factory):
 
 @pytest.fixture
 def client(application):
-    from app.database import Base, engine
-
-    try:
-        # O contexto executa o lifespan, criando as tabelas no banco temporário.
-        with TestClient(application) as test_client:
-            yield test_client
-    finally:
-        # Cada caso começa sem dados deixados pelo caso anterior.
-        Base.metadata.drop_all(bind=engine)
+    # O contexto executa o lifespan, criando as tabelas no banco temporário.
+    with TestClient(application) as test_client:
+        yield test_client
+    # Limpeza após cada teste desativada: os dados permanecem nesta sessão.
+    # Base.metadata.drop_all(bind=engine)
