@@ -33,3 +33,27 @@ def client(application):
         yield test_client
     # Limpeza após cada teste desativada: os dados permanecem nesta sessão.
     # Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="session")
+def auth_headers(application):
+    """Autentica um usuário uma vez e compartilha o Bearer nos testes."""
+    credentials = {
+        "name": "Usuário dos testes autenticados",
+        "email": "testes-autenticados@example.com",
+        "password": "Teste11!",
+    }
+
+    # Usa um cliente próprio para que o login aconteça uma única vez por sessão.
+    with TestClient(application) as authenticated_client:
+        registration = authenticated_client.post("/auth/register", json=credentials)
+        assert registration.status_code == 201, registration.text
+
+        login = authenticated_client.post(
+            "/auth/login",
+            json={"email": credentials["email"], "password": credentials["password"]},
+        )
+        assert login.status_code == 200, login.text
+        token = login.json()["access_token"]
+
+    return {"Authorization": f"Bearer {token}"}

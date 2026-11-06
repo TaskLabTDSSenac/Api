@@ -31,4 +31,5 @@ class TaskService:
         return self.repository.save(task)
 
     def delete_task(self, user_id: int, task_id: int) -> None:
-        self.get_task(user_id, task_id)
+        task = self.get_task(user_id, task_id)
+        self.repository.delete(task)
