@@ -458,7 +458,31 @@ A troca de senha **não invalida tokens já emitidos**: eles continuam válidos 
 a expiração, conforme a política atual sem revogação. Apenas os novos logins
 passam a exigir a nova senha. Não há recuperação de senha, refresh token ou revogação.
 
-### Teste funcional automatizado: CT-02
+### API com banco exclusivo para testes do Site
+
+Na pasta `Api`, execute:
+
+```powershell
+.\iniciar_testes_site.bat
+```
+
+Esse arquivo inicia a API na porta 8000 e, a cada execução, remove e recria
+as tabelas de `Api/tasklab_web_testes.db`. O arquivo é criado se ainda não existir.
+Todos os usuários e tarefas desse banco de testes são apagados no início.
+O banco principal `tasklab.db` e o `.env` são preservados. A chave JWT é gerada
+apenas para essa execução, portanto faça login novamente ao reiniciar.
+
+Encerre a API anterior antes de executar: se a porta 8000 estiver ocupada,
+o script interrompe antes da limpeza. A `.venv` e as dependências da API devem
+estar instaladas. O auxiliar `scripts/iniciar_api_testes_site.py` fixa o caminho
+do banco de testes antes de importar a aplicação e executa a limpeza.
+
+Mantenha essa janela aberta. Em outras janelas, execute `Site/iniciar.bat`
+para servir as páginas e `Site/iniciar_testes.bat` para rodar o Playwright.
+O BAT da API prepara o backend; ele não inicia o site nem executa o Playwright.
+Encerre com Ctrl+C. O banco permanece disponível até a próxima execução desse BAT.
+
+### Testes da API com pytest
 
 Na raiz `Api`, execute `iniciar_testes.bat` (também pode abrir com duplo clique).
 Ele reutiliza a `.venv`, instala as dependências de desenvolvimento e executa
