@@ -3,12 +3,12 @@ def test_ct02_cadastro_rejeita_senha_menor_que_oito_caracteres(client):
     dados = {
         "name": "Aluno Teste",
         "email": "ct02@example.com",
-        "password": "12345678",
+        "password": "123456",
     }
 
     resposta = client.post("/auth/register", json=dados)
 
-    assert resposta.status_code == 201
+    assert resposta.status_code == 422
 
 def test_ct03_login(client):
     """CT-03: login com sucesso"""
