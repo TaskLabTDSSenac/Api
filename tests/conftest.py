@@ -1,4 +1,5 @@
 import secrets
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -33,3 +34,36 @@ def client(application):
         yield test_client
     # Limpeza após cada teste desativada: os dados permanecem nesta sessão.
     # Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture
+def novo_usuario(client):
+    """Cria um usuário com e-mail único para os testes autenticados."""
+    email = f"kauane.{uuid4().hex}@example.com"
+    senha = "SenhaInicial123"
+    resposta = client.post(
+        "/auth/register",
+        json={"name": "Usuária de Teste", "email": email, "password": senha},
+    )
+    assert resposta.status_code == 201
+    return email, senha
+
+
+@pytest.fixture
+def usuario_autenticado(client, novo_usuario):
+    email, senha = novo_usuario
+    resposta = client.post("/auth/login", json={"email": email, "password": senha})
+    assert resposta.status_code == 200
+    token = resposta.json()["access_token"]
+    return {"email": email, "senha": senha, "headers": {"Authorization": f"Bearer {token}"}}
+
+
+@pytest.fixture
+def missao_criada(client, usuario_autenticado):
+    resposta = client.post(
+        "/tasks",
+        headers=usuario_autenticado["headers"],
+        json={"title": "Missão original", "description": "Descrição original"},
+    )
+    assert resposta.status_code == 201
+    return resposta.json()
