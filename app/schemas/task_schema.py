@@ -8,7 +8,7 @@ class TaskCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=150)]
-    description: str | None = Field(default=None, max_length=500)
+    description: str | None = None
 
     @field_validator("title", mode="wrap")
     @classmethod
@@ -24,7 +24,7 @@ class TaskUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=150)]
-    description: str | None = Field(default=None, max_length=500)
+    description: str | None = None
 
     @field_validator("title", mode="wrap")
     @classmethod

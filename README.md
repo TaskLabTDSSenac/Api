@@ -315,7 +315,7 @@ A resposta é HTTP 201, com a tarefa pendente (`completed: false`):
 
 IDs e datas são ilustrativos. Os timestamps são retornados em ISO 8601 com indicação
 de UTC (`Z`). O título é obrigatório e deve ter de 3 a 150 caracteres após remover
-espaços das extremidades. A descrição aceita até 500 caracteres; omitida ou enviada
+espaços das extremidades. A descrição aceita textos longos, sem limite de 500 caracteres; omitida ou enviada
 como `null`, resulta em `null`. Não há remoção de espaços da descrição.
 Campos extras são rejeitados com 422, incluindo `id`, `user_id`, `completed`,
 `created_at` e `updated_at`.
@@ -387,7 +387,7 @@ Faça login e use **Authorize** no Swagger. Crie uma tarefa e copie seu ID.
    ```
 
    Espere HTTP 200 com a tarefa atualizada. O título é obrigatório, aparado e deve
-   conter de 3 a 150 caracteres. A descrição aceita até 500 caracteres; omiti-la
+   conter de 3 a 150 caracteres. A descrição aceita textos longos, sem limite de 500 caracteres; omiti-la
    ou enviar `null` remove a descrição anterior. O PUT preserva ID, proprietário,
    `created_at` e `completed`, e atualiza `updated_at`, mesmo se o conteúdo for igual.
    Campos extras, incluindo `user_id`, `id` e `completed`, retornam 422.

@@ -33,3 +33,18 @@ def client(application):
         yield test_client
     # Limpeza após cada teste desativada: os dados permanecem nesta sessão.
     # Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture
+def auth_headers(client):
+    email = f"teste-{secrets.token_hex(8)}@example.com"
+    credentials = {"email": email, "password": "SenhaForte123", "name": "Teste"}
+    registration = client.post("/auth/register", json=credentials)
+    assert registration.status_code == 201
+
+    login = client.post("/auth/login", json={
+        "email": email,
+        "password": credentials["password"],
+    })
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
