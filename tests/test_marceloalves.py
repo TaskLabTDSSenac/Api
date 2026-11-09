@@ -9,3 +9,4 @@ def test_ct02_cadastro_rejeita_senha_menor_que_oito_caracteres(client):
     resposta = client.post("/auth/register", json=dados)
 
     assert resposta.status_code == 422
+    
