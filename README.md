@@ -463,7 +463,7 @@ passam a exigir a nova senha. Não há recuperação de senha, refresh token ou 
 Na pasta `Api`, execute:
 
 ```powershell
-.\iniciar_testes_site.bat
+.\iniciar_testes_site_app.bat
 ```
 
 Esse arquivo inicia a API na porta 8000 e, a cada execução, remove e recria
