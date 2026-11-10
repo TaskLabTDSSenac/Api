@@ -18,7 +18,7 @@ if errorlevel 1 (
 
 echo.
 echo Executando testes com SQLite temporario, sem iniciar o Uvicorn...
-".venv\Scripts\python.exe" -m pytest -v
+".venv\Scripts\python.exe" -m pytest -v tests
 set "TEST_EXIT_CODE=%ERRORLEVEL%"
 echo.
 echo Codigo de saida do pytest: %TEST_EXIT_CODE%
