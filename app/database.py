@@ -21,6 +21,12 @@ engine = create_engine(
 if is_sqlite:
     @event.listens_for(engine, "connect")
     def enable_foreign_keys(connection, connection_record):
+        # Normalização Unicode para buscas sem distinção de maiúsculas/minúsculas.
+        connection.create_function(
+            "tasklab_casefold", 1,
+            lambda value: value.casefold() if value is not None else None,
+            deterministic=True,
+        )
         cursor = connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
