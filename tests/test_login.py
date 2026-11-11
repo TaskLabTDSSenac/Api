@@ -160,3 +160,14 @@ def test_consultar_perfil_com_token_invalido(client):
     )
 
     assert resposta.status_code == 401
+
+
+def test_consultar_estatisticas_com_token_valido(client):
+    headers = _criar_headers_perfil(client, "estatisticas_locust@example.com")
+
+    resposta = client.get("/tasks/stats", headers=headers)
+
+    assert resposta.status_code == 200
+    assert resposta.json()["total"] == 0
+    assert resposta.json()["pending"] == 0
+    assert resposta.json()["completed"] == 0
