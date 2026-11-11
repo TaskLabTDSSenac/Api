@@ -15,25 +15,22 @@ class UsuarioTaskLab(HttpUser):
     def consultar_perfil(self):
         self.client.get("/users/me", headers=self._headers())
 
-    @tag("tarefas")
+    @tag("listar_tarefas")
     @task
     def listar_tarefas(self):
         self.client.get("/tasks", headers=self._headers())
 
-    @tag("tarefas")
+    @tag("estatisticas_tarefas")
     @task
     def consultar_estatisticas_tarefas(self):
         self.client.get("/tasks/stats", headers=self._headers())
 
-    @tag("tarefas")
+    @tag("consultar_tarefa")
     @task
     def consultar_tarefa(self):
-        # Obtém um ID válido da própria conta para consultar a rota de detalhe.
-        response = self.client.get("/tasks", headers=self._headers())
-        if response.ok:
-            tarefas = response.json()
-            if tarefas:
-                self.client.get(
-                    f"/tasks/{tarefas[0]['id']}",
-                    headers=self._headers(),
-                )
+        task_id = os.environ.get("TASKLAB_TASK_ID")
+        if not task_id:
+            raise RuntimeError(
+                "Defina TASKLAB_TASK_ID com o ID de uma tarefa da conta do token."
+            )
+        self.client.get(f"/tasks/{task_id}", headers=self._headers())
