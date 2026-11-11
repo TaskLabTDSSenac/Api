@@ -564,3 +564,27 @@ e espera **HTTP 422**, conforme o contrato correto.
 Com o defeito intencional atual, a API retorna **201** e o teste aparece como
 **FAILED** (`assert 201 == 422`). Isso demonstra a detecção do defeito; a regra
 de negócio não foi corrigida nem o teste marcado para ignorar a falha.
+
+### Testes de carga com Locust
+
+O arquivo `load_tests/locustfile.py` simula usuários autenticados consultando o perfil,
+listando tarefas e consultando estatísticas. Configure `TASKLAB_TOKEN` com o token
+Bearer de uma conta existente e mantenha a API iniciada em `http://127.0.0.1:8000`.
+
+No PowerShell, na raiz `Api`:
+
+```powershell
+$env:TASKLAB_TOKEN = "SEU_ACCESS_TOKEN"
+.\iniciar_teste_carga.bat
+```
+
+O Locust abre a interface em `http://localhost:8089`. Informe a quantidade de usuários
+e a taxa de inicialização, depois inicie o teste e ajuste a duração na interface ou
+passe opções diretamente ao BAT, por exemplo `--headless -u 10 -r 2 -t 1m`.
+Os pesos das tarefas definem a proporção aproximada das chamadas: listagem 5,
+perfil 3 e estatísticas 2. As tags `perfil`, `tarefas` e `estatisticas` permitem
+selecionar rotas específicas com `--tags` ou `--exclude-tags`.
+
+A tabela do Locust mostra requisições por segundo, tempos de resposta (incluindo
+mediana e percentis), quantidade de requisições e falhas. O relatório pode ser salvo
+com as opções `--csv` e `--html` do Locust.

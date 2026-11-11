@@ -123,3 +123,40 @@ def test_ct09_excluir_tarefa(client):
     lista = client.get("/tasks", headers=headers)
     assert lista.status_code == 200
     assert all(item["id"] != tarefa["id"] for item in lista.json())
+
+
+def _criar_headers_perfil(client, email):
+    client.post(
+        "/auth/register",
+        json={"name": "Usuario Locust", "email": email, "password": "Teste@123"},
+    )
+    login = client.post(
+        "/auth/login",
+        json={"email": email, "password": "Teste@123"},
+    )
+    token = login.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_consultar_perfil_com_token_valido(client):
+    headers = _criar_headers_perfil(client, "perfil_locust@example.com")
+
+    resposta = client.get("/users/me", headers=headers)
+
+    assert resposta.status_code == 200
+    assert resposta.json()["email"] == "perfil_locust@example.com"
+
+
+def test_consultar_perfil_sem_token(client):
+    resposta = client.get("/users/me")
+
+    assert resposta.status_code == 401
+
+
+def test_consultar_perfil_com_token_invalido(client):
+    resposta = client.get(
+        "/users/me",
+        headers={"Authorization": "Bearer token-invalido"},
+    )
+
+    assert resposta.status_code == 401
