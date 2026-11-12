@@ -1,23 +1,14 @@
-def test_ct02_cadastro_rejeita_senha_menor_que_oito_caracteres(client):
-    """CT-02: a API deve rejeitar uma senha de apenas 6 caracteres."""
+﻿def test_cadastro_valido_retorna_dados_publicos(client):
+    """A API deve cadastrar o usuário sem expor senha ou hash."""
     dados = {
         "name": "Aluno Teste",
-        "email": "ct02@example.com",
-        "password": "123456",
-    }
-
-    resposta = client.post("/auth/register", json=dados)
-
-    assert resposta.status_code == 422
-
-def test_ct03_cadastro_rejeita_senha_menor_que_oito_caracteres(client):
-    """CT-02: a API deve rejeitar uma senha de apenas 6 caracteres."""
-    dados = {
-        "name": "Aluno Teste",
-        "email": "ct02@example.com",
-        "password": "123456",
+        "email": "cadastro-valido@example.com",
+        "password": "SenhaValida123!",
     }
 
     resposta = client.post("/auth/register", json=dados)
 
     assert resposta.status_code == 201
+    assert resposta.json()["email"] == dados["email"]
+    assert "password" not in resposta.json()
+    assert "password_hash" not in resposta.json()

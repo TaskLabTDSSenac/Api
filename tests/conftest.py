@@ -1,4 +1,4 @@
-import secrets
+﻿import secrets
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,7 +16,7 @@ def application(tmp_path_factory):
         from app.main import app
         from app.database import engine
 
-        # Impede executar a limpeza se a engine não for a de testes.
+        # Impede executar a limpeza se a engine nÃ£o for a de testes.
         assert engine.url.database == database.as_posix()
         try:
             yield app
@@ -29,9 +29,34 @@ def client(application):
     from app.database import Base, engine
 
     try:
-        # O contexto executa o lifespan, criando as tabelas no banco temporário.
+        # O contexto executa o lifespan, criando as tabelas no banco temporÃ¡rio.
         with TestClient(application) as test_client:
             yield test_client
     finally:
-        # Cada caso começa sem dados deixados pelo caso anterior.
+        # Cada caso comeÃ§a sem dados deixados pelo caso anterior.
         Base.metadata.drop_all(bind=engine)
+
+
+SENHA = "SenhaInicial123!"
+
+@pytest.fixture
+def usuario_cadastrado(client, request):
+    dados = {
+        "name": "Aluno Teste",
+        "email": f"{request.node.name.split('_')[1]}@example.com",
+        "password": SENHA,
+    }
+    resposta = client.post("/auth/register", json=dados)
+    assert resposta.status_code == 201
+    return {**dados, "id": resposta.json()["id"]}
+
+@pytest.fixture
+def headers_autenticados(client, usuario_cadastrado):
+    resposta = client.post(
+        "/auth/login",
+        json={"email": usuario_cadastrado["email"], "password": usuario_cadastrado["password"]},
+    )
+    assert resposta.status_code == 200
+    token = resposta.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
