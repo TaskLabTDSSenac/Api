@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
 from app.repositories.task_repository import TaskRepository
-from app.schemas.task_schema import TaskCreate, TaskResponse, TaskUpdate
+from app.schemas.task_schema import TaskCreate, TaskResponse, TaskStatsResponse, TaskUpdate
 from app.security.dependencies import get_current_user
 from app.services.task_service import TaskService
 
@@ -31,8 +31,28 @@ def create_task(
 def list_tasks(
     current_user: Annotated[User, Depends(get_current_user)],
     service: Annotated[TaskService, Depends(get_task_service)],
+    completed: Annotated[bool | None, Query(
+        description="Filtra pela situação: true para concluídas, false para pendentes; omitido lista todas.",
+    )] = None,
+    search: Annotated[str | None, Query(
+        description="Texto parcial no título ou descrição, sem distinguir maiúsculas. "
+                    "Espaços nas extremidades são removidos; texto vazio não filtra. % e _ são literais.",
+    )] = None,
 ):
-    return service.list_tasks(current_user.id)
+    return service.list_tasks(current_user.id, completed, search)
+
+
+@router.get(
+    "/stats", response_model=TaskStatsResponse,
+    summary="Consultar estatísticas das tarefas do usuário autenticado",
+    description="Considera todas as tarefas do usuário, independentemente dos filtros da listagem.",
+    responses={401: {"description": "Autenticação necessária ou token inválido."}},
+)
+def get_task_stats(
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[TaskService, Depends(get_task_service)],
+):
+    return service.get_stats(current_user.id)
 
 
 @router.get(

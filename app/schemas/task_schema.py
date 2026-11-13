@@ -34,6 +34,16 @@ class TaskUpdate(BaseModel):
         return handler(value)
 
 
+class TaskStatsResponse(BaseModel):
+    total: int = Field(ge=0, description="Total de tarefas do usuário autenticado.")
+    pending: int = Field(ge=0, description="Quantidade de tarefas pendentes.")
+    completed: int = Field(ge=0, description="Quantidade de tarefas concluídas.")
+    completion_percentage: float = Field(
+        ge=0, le=100,
+        description="Percentual concluído, arredondado a duas casas decimais; zero sem tarefas.",
+    )
+
+
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
