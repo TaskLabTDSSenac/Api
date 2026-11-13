@@ -1,4 +1,4 @@
-﻿import secrets
+import secrets
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,11 +14,12 @@ def application(tmp_path_factory):
         environment.setenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60")
 
         from app.main import app
-        from app.database import engine
+        from app.database import Base, engine
 
-        # Impede executar a limpeza se a engine nÃ£o for a de testes.
+        # Evita que a limpeza alcance o banco principal.
         assert engine.url.database == database.as_posix()
         try:
+            Base.metadata.drop_all(bind=engine)
             yield app
         finally:
             engine.dispose()
@@ -29,15 +30,16 @@ def client(application):
     from app.database import Base, engine
 
     try:
-        # O contexto executa o lifespan, criando as tabelas no banco temporÃ¡rio.
+        # O lifespan cria as tabelas no banco temporário.
         with TestClient(application) as test_client:
             yield test_client
     finally:
-        # Cada caso comeÃ§a sem dados deixados pelo caso anterior.
+        # Cada teste começa sem dados deixados por outro caso.
         Base.metadata.drop_all(bind=engine)
 
 
 SENHA = "SenhaInicial123!"
+
 
 @pytest.fixture
 def usuario_cadastrado(client, request):
@@ -50,13 +52,16 @@ def usuario_cadastrado(client, request):
     assert resposta.status_code == 201
     return {**dados, "id": resposta.json()["id"]}
 
+
 @pytest.fixture
 def headers_autenticados(client, usuario_cadastrado):
     resposta = client.post(
         "/auth/login",
-        json={"email": usuario_cadastrado["email"], "password": usuario_cadastrado["password"]},
+        json={
+            "email": usuario_cadastrado["email"],
+            "password": usuario_cadastrado["password"],
+        },
     )
     assert resposta.status_code == 200
     token = resposta.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
-

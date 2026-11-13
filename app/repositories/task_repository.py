@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -44,10 +44,37 @@ class TaskRepository:
             raise
         return task
 
-    def list_by_user(self, user_id: int) -> list[Task]:
+    def list_by_user(
+        self, user_id: int, completed: bool | None = None, search: str | None = None,
+    ) -> list[Task]:
         statement = (
             select(Task)
             .where(Task.user_id == user_id)
             .order_by(Task.created_at.desc(), Task.id.desc())
         )
+        if completed is not None:
+            statement = statement.where(Task.completed == completed)
+        if search:
+            if self.session.get_bind().dialect.name == "sqlite":
+                title = func.tasklab_casefold(Task.title)
+                description = func.tasklab_casefold(Task.description)
+                text = search.casefold()
+            else:
+                title = func.lower(Task.title)
+                description = func.lower(Task.description)
+                text = search.lower()
+            # autoescape trata %, _ e o próprio caractere de escape como literais.
+            statement = statement.where(or_(
+                title.contains(text, autoescape=True),
+                description.contains(text, autoescape=True),
+            ))
         return list(self.session.scalars(statement).all())
+
+    def count_by_user(self, user_id: int) -> tuple[int, int, int]:
+        statement = select(
+            func.count(Task.id),
+            func.count(case((Task.completed.is_(False), 1))),
+            func.count(case((Task.completed.is_(True), 1))),
+        ).where(Task.user_id == user_id)
+        total, pending, completed = self.session.execute(statement).one()
+        return total, pending, completed

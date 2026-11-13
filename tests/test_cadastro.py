@@ -1,4 +1,4 @@
-﻿def test_cadastro_valido_retorna_dados_publicos(client):
+def test_cadastro_valido_retorna_dados_publicos(client):
     """A API deve cadastrar o usuário sem expor senha ou hash."""
     dados = {
         "name": "Aluno Teste",

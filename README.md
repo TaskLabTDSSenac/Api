@@ -320,7 +320,32 @@ como `null`, resulta em `null`. Não há remoção de espaços da descrição.
 Campos extras são rejeitados com 422, incluindo `id`, `user_id`, `completed`,
 `created_at` e `updated_at`.
 
-`GET /tasks` retorna HTTP 200 com uma lista:
+`GET /tasks` retorna HTTP 200 com uma lista. Exige JWT e aceita os filtros
+opcionais `completed` e `search`, que podem ser combinados:
+
+| URL | Resultado |
+| --- | --- |
+| `/tasks` | Todas as tarefas do usuário autenticado. |
+| `/tasks?completed=false` | Somente pendentes. |
+| `/tasks?completed=true` | Somente concluídas. |
+| `/tasks?search=estudar` | Título ou descrição contendo “estudar”. |
+| `/tasks?completed=false&search=estudar` | Pendentes com o texto no título ou descrição. |
+| `/tasks?search=100%25` | Busca o texto literal `100%`. |
+| `/tasks?search=etapa_1` | Busca o texto literal `etapa_1`. |
+
+Use o prefixo `http://127.0.0.1:8000` para acessar essas URLs localmente.
+A busca ignora diferenças de maiúsculas/minúsculas, inclusive em palavras
+acentuadas no SQLite, e remove espaços das extremidades. `search` vazio ou
+composto só por espaços não restringe a consulta. Descrições nulas são aceitas.
+Os caracteres `%` e `_` não são curingas. O filtro é aplicado no banco com
+parâmetros vinculados pelo SQLAlchemy, preservando a ordenação por `created_at`
+decrescente e, em empate, `id` decrescente. Sem resultados, retorna `[]`.
+
+`completed` usa a validação booleana do FastAPI; um valor não reconhecido,
+como `/tasks?completed=invalido`, retorna HTTP 422. O proprietário sempre é
+obtido do JWT; um parâmetro `user_id` não seleciona outra conta.
+
+Exemplo do formato da lista, preservado sem paginação:
 
 ```json
 [
@@ -350,6 +375,31 @@ O fluxo é Controller → TaskService → TaskRepository → SQLite:
 
 O modelo é registrado antes de `create_all`: ao reiniciar, a tabela ausente é criada
 sem apagar tabelas ou registros existentes.
+
+### Estatísticas das tarefas
+
+`GET http://127.0.0.1:8000/tasks/stats` exige JWT e retorna todas as contagens
+do usuário autenticado, independentemente dos filtros usados na listagem:
+
+```json
+{
+  "total": 10,
+  "pending": 6,
+  "completed": 4,
+  "completion_percentage": 40.0
+}
+```
+
+As contagens são calculadas no banco por agregações, sem carregar as tarefas
+em memória. O service calcula `(completed / total) * 100`, arredondado para
+duas casas decimais. Sem tarefas, retorna `total`, `pending` e `completed`
+iguais a `0`, e `completion_percentage` igual a `0.0`.
+O percentual é um número JSON; não exige exibição de zeros decimais à direita.
+
+O schema `TaskStatsResponse` e os parâmetros da listagem aparecem no Swagger.
+A rota `/tasks/stats` é declarada antes de `/tasks/{id}`. Tanto a listagem
+quanto as estatísticas reutilizam `get_current_user` e preservam o HTTP 401
+para token ausente, inválido ou expirado.
 
 ### Verificações manuais de tarefas no Swagger
 
@@ -458,7 +508,31 @@ A troca de senha **não invalida tokens já emitidos**: eles continuam válidos 
 a expiração, conforme a política atual sem revogação. Apenas os novos logins
 passam a exigir a nova senha. Não há recuperação de senha, refresh token ou revogação.
 
-### Teste funcional automatizado: CT-02
+### API com banco exclusivo para testes do Site
+
+Na pasta `Api`, execute:
+
+```powershell
+.\iniciar_testes_site_app.bat
+```
+
+Esse arquivo inicia a API na porta 8000 e, a cada execução, remove e recria
+as tabelas de `Api/tasklab_web_testes.db`. O arquivo é criado se ainda não existir.
+Todos os usuários e tarefas desse banco de testes são apagados no início.
+O banco principal `tasklab.db` e o `.env` são preservados. A chave JWT é gerada
+apenas para essa execução, portanto faça login novamente ao reiniciar.
+
+Encerre a API anterior antes de executar: se a porta 8000 estiver ocupada,
+o script interrompe antes da limpeza. A `.venv` e as dependências da API devem
+estar instaladas. O auxiliar `scripts/iniciar_api_testes_site.py` fixa o caminho
+do banco de testes antes de importar a aplicação e executa a limpeza.
+
+Mantenha essa janela aberta. Em outras janelas, execute `Site/iniciar.bat`
+para servir as páginas e `Site/iniciar_testes.bat` para rodar o Playwright.
+O BAT da API prepara o backend; ele não inicia o site nem executa o Playwright.
+Encerre com Ctrl+C. O banco permanece disponível até a próxima execução desse BAT.
+
+### Testes da API com pytest
 
 Na raiz `Api`, execute `iniciar_testes.bat` (também pode abrir com duplo clique).
 Ele reutiliza a `.venv`, instala as dependências de desenvolvimento e executa
@@ -477,7 +551,8 @@ importar o pacote `app`.
 
 A fixture `client` em `tests/conftest.py` fornece um cliente reutilizável e
 configura um SQLite temporário exclusivo antes de importar a API. O lifespan
-cria as tabelas nesse banco, e a fixture as limpa após cada caso. O banco
+cria as tabelas nesse banco. A limpeza ocorre uma única vez antes do primeiro
+teste; os dados permanecem disponíveis para os próximos testes da sessão. O banco
 `tasklab.db` e o `.env` não são alterados; a chave JWT dos testes é temporária.
 Novos testes devem usar essa fixture e evitar importar a aplicação no topo
 dos arquivos, antes de configurar o ambiente isolado.
