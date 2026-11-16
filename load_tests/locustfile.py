@@ -14,3 +14,23 @@ class UsuarioTaskLab(HttpUser):
                 "Authorization": f"Bearer {os.environ['TASKLAB_TOKEN']}"
             },
         )
+
+    @tag("tarefas")
+    @task
+    def listar_tarefas(self):
+        self.client.get(
+            "/tasks",
+            headers={
+                "Authorization": f"Bearer {os.environ['TASKLAB_TOKEN']}"
+            },
+        )
+
+    @tag("estatisticas")
+    @task
+    def consultar_estatisticas(self):
+        self.client.get(
+            "/tasks/stats",
+            headers={
+                "Authorization": f"Bearer {os.environ['TASKLAB_TOKEN']}"
+            },
+        )
