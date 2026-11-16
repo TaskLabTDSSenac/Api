@@ -6,4 +6,8 @@ __pycache__/
 *.db-*
 .pytest_cache/
 .coverage
+.coverage.*
+htmlcov_estruturais/
 htmlcov/
+load_tests_automatizados/relatorios/*
+!load_tests_automatizados/relatorios/.gitkeep
