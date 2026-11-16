@@ -1,5 +1,13 @@
 # TaskLab — material reservado ao instrutor
 
+> **Registro histórico — corrigido em 13/11/2026.** Os comportamentos incorretos
+> descritos abaixo não estão mais ativos no código atual da API, Site e App.
+> Foram restauradas as regras dos oito casos, incluindo nome mínimo de 3
+> caracteres e confirmação de senha nos clientes (cadastro e troca de senha).
+> Os dados antigos foram preservados. As instruções abaixo sobre bugs ativos,
+> resultados de testes, stashes e retorno de versão pertencem ao laboratório
+> anterior e não devem ser usadas como orientação do estado atual.
+
 ## Isolamento e execução
 
 Por solicitação posterior do instrutor, a API está na branch `main`, com as

@@ -10,13 +10,6 @@ class TaskCreate(BaseModel):
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=150)]
     description: str | None = Field(default=None, max_length=500)
 
-    @field_validator("title", mode="wrap")
-    @classmethod
-    def validate_title(cls, value, handler):
-        if isinstance(value, str) and value.isspace() and len(value) <= 150:
-            return value
-        return handler(value)
-
 
 class TaskUpdate(BaseModel):
     """Substitui título e descrição, com as mesmas validações da criação."""
@@ -26,12 +19,15 @@ class TaskUpdate(BaseModel):
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=150)]
     description: str | None = Field(default=None, max_length=500)
 
-    @field_validator("title", mode="wrap")
-    @classmethod
-    def validate_title(cls, value, handler):
-        if isinstance(value, str) and len(value.strip()) > 150:
-            return value.strip()
-        return handler(value)
+
+class TaskStatsResponse(BaseModel):
+    total: int = Field(ge=0, description="Total de tarefas do usuário autenticado.")
+    pending: int = Field(ge=0, description="Quantidade de tarefas pendentes.")
+    completed: int = Field(ge=0, description="Quantidade de tarefas concluídas.")
+    completion_percentage: float = Field(
+        ge=0, le=100,
+        description="Percentual concluído, arredondado a duas casas decimais; zero sem tarefas.",
+    )
 
 
 class TaskResponse(BaseModel):
