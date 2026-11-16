@@ -568,6 +568,59 @@ O arquivo `tests/test_cadastro.py` atualmente verifica cadastro válido e login.
 Embora o nome do primeiro teste mencione senha curta, seu corpo usa 8 caracteres
 e espera 201. Ele foi preservado; não comprova a rejeição de senhas curtas.
 
+## Testes estruturais do AuthService
+
+Não é necessário iniciar API, Site ou App. Na raiz da API, execute:
+
+```powershell
+.\iniciar_testes_estruturais.bat
+```
+
+O script usa o Python da `.venv`, instala `requirements-dev.txt` e executa
+somente `tests/estruturais/`. Mostra cobertura de linhas e desvios no terminal,
+incluindo eventuais linhas não cobertas, e preserva o código de saída do pytest.
+Abra `htmlcov_estruturais/index.html` no navegador para consultar o relatório.
+
+Para executar diretamente, sem a pausa do BAT:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/estruturais/ -v --cov=app.services.auth_service --cov-branch --cov-report=term-missing --cov-report=html:htmlcov_estruturais
+```
+
+Esse comando mede exclusivamente `app/services/auth_service.py`.
+`pytest-cov` está declarado em `requirements-dev.txt`; instale esse arquivo
+antes da execução direta caso ainda não tenha as dependências.
+
+`tests/estruturais/test_auth_service.py` chama `register` e `login` diretamente,
+sem HTTP. Os mocks substituem Repository, geração e verificação de hash e
+emissão de JWT, permitindo controlar as respostas e verificar chamadas.
+A fixture `application` de `tests/conftest.py` é reutilizada para configurar
+o SQLite temporário antes dos imports: seu preparo pode acessar esse banco
+isolado, mas as operações dos Services usam apenas o Repository simulado.
+Não utiliza o banco principal nem a fixture HTTP `client`. O hash fictício
+do módulo é criado normalmente no import; sua verificação nos testes é simulada.
+
+Os nove casos verificam:
+
+- E-mail disponível: gera hash e salva os dados com esse hash.
+- E-mail ocupado: lança erro e não gera hash nem salva.
+- Usuário inexistente: verifica o hash fictício e não emite token.
+- Senha incorreta: rejeita o login sem emitir token.
+- Login válido: emite token para o ID correto e retorna tipo `bearer`.
+- Duplicidade durante a persistência: converte a restrição de `users.email`
+  em `EmailAlreadyExistsError`, preservando a causa.
+- Outros erros de integridade: propaga o erro original para origem não SQLite,
+  outro código SQLite ou outra coluna com restrição única (três casos).
+
+Na verificação de implementação, os nove casos passaram com 100% das 32
+instruções e dos 6 desvios medidos, sem linhas ou desvios pendentes.
+Isso não significa testar todas as combinações: cobertura de branches observa
+as alternativas do fluxo, mas não garante todas as combinações de condições
+de um `and`/`or`, todos os dados de entrada ou todas as sequências de execução.
+Estes testes também não validam Argon2, JWT real ou concorrência real no banco:
+essas dependências são simuladas para verificar as decisões do Service.
+Não foram adicionadas exclusões de cobertura nem alteradas regras de negócio.
+
 ## Testes de carga: painel e execução automatizada
 
 Os dois modos são independentes. A API deve estar rodando em outro terminal;
