@@ -41,7 +41,9 @@ app.add_middleware(
         "https://tasklab-marceloalvessite.up.railway.app",
         "https://tasklab-carlosdaniel.up.railway.app",
         "https://tasklab-kauane.up.railway.app",
-        "https://tasklab-gabriel.up.railway.app"
+        "https://tasklab-gabriel.up.railway.app",
+        "https://tasklab-williams.up.railway.app",
+        "https://tasklab-yuri.up.railway.app"
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
