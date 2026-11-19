@@ -38,7 +38,7 @@ app.add_middleware(
         "https://tasklab-felipe.up.railway.app",
         "https://tasklab-romulo.up.railway.app",
         "https://tasklabivanildo.up.railway.app",
-        "https://tasklab-marceloalvessite.up.railway.app",
+        "https://tasklab-marcelo.up.railway.app",
         "https://tasklab-carlosdaniel.up.railway.app",
         "https://tasklab-kauane.up.railway.app",
         "https://tasklab-gabriel.up.railway.app",
