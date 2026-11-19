@@ -32,7 +32,14 @@ app.add_middleware(
         "http://localhost:5501",
         "http://127.0.0.1:63942",
         "http://localhost:63942",
-        "https://tasklab.up.railway.app"
+        "https://tasklab.up.railway.app",
+        "https://tasklab-kennedy.up.railway.app",
+        "https://tasklab-thiago.up.railway.app",
+        "https://tasklab-felipe.up.railway.app",
+        "https://tasklab-romulo.up.railway.app",
+        "https://tasklabivanildo.up.railway.app",
+        "https://tasklab-marceloalvessite.up.railway.app",
+        "https://tasklab-carlosdaniel.up.railway.app"
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
