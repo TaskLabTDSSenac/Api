@@ -634,9 +634,10 @@ antes da execução direta caso ainda não tenha as dependências.
 `tests/estruturais/test_auth_service.py` chama `register` e `login` diretamente,
 sem HTTP. Os mocks substituem Repository, geração e verificação de hash e
 emissão de JWT, permitindo controlar as respostas e verificar chamadas.
-A fixture `application` de `tests/conftest.py` é reutilizada para configurar
-o SQLite temporário antes dos imports: seu preparo pode acessar esse banco
-isolado, mas as operações dos Services usam apenas o Repository simulado.
+Os testes estruturais usam apenas a fixture `test_settings` de `tests/conftest.py`,
+que configura as variáveis de ambiente antes dos imports, sem abrir banco ou
+criar tabelas. A fixture `application` fica reservada aos testes funcionais.
+As operações dos Services nos testes estruturais usam apenas o Repository simulado.
 Não utiliza o banco principal nem a fixture HTTP `client`. O hash fictício
 do módulo é criado normalmente no import; sua verificação nos testes é simulada.
 
