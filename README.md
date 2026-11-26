@@ -147,6 +147,8 @@ DATABASE_URL=sqlite:///C:/dados/tasklab.db
 ```
 
 A pasta escolhida deve existir. Variáveis de ambiente têm prioridade sobre `.env`.
+O `iniciar.bat` respeita essa configuração; sem `DATABASE_URL`, permanece o banco
+`tasklab.db` na raiz da API.
 Caminhos SQLite relativos personalizados são relativos à pasta de execução.
 Cada requisição recebe uma sessão, fechada ao terminar. Cada conexão SQLite habilita
 `PRAGMA foreign_keys=ON`. Os timestamps são gerados em UTC; o SQLite armazena os valores
@@ -154,6 +156,29 @@ sem informação de fuso, portanto devem ser interpretados como UTC.
 `updated_at` é atualizado nas alterações feitas pelo SQLAlchemy.
 
 `.venv`, `.env`, bancos `.db` e seus arquivos auxiliares são ignorados pelo Git.
+
+### SQLite no volume do Railway
+
+Vincule o volume ao serviço da API com **Mount Path `/data`**. Nas variáveis
+desse serviço, configure:
+
+```dotenv
+DATABASE_URL=sqlite:////data/tasklab.db
+```
+
+São quatro barras após `sqlite:`: o caminho Linux é absoluto, `/data/tasklab.db`.
+Faça um novo deploy após configurar a variável. Não é necessário ter um `.env`
+no Railway: a API também lê as variáveis de ambiente do serviço.
+
+O volume fica disponível quando o serviço inicia. A criação das tabelas já
+ocorre no lifespan da API, não durante o build. A inicialização cria somente
+tabelas ausentes e preserva os registros existentes. Veja a
+[documentação de volumes do Railway](https://docs.railway.com/volumes).
+
+O banco anterior não é copiado automaticamente para o novo caminho. Um volume
+sem banco começa vazio; para manter dados anteriores é necessário transferir
+o banco separadamente, com a aplicação parada. O código não apaga nem move o
+banco antigo ao mudar `DATABASE_URL`.
 
 ## Fluxo do cadastro
 
@@ -587,34 +612,49 @@ Para executar diretamente, sem a pausa do BAT:
 .\.venv\Scripts\python.exe -m pytest tests/estruturais/ -v --cov=app.services.auth_service --cov-branch --cov-report=term-missing --cov-report=html:htmlcov_estruturais
 ```
 
-Esse comando mede exclusivamente `app/services/auth_service.py`.
+Esse comando direto mede exclusivamente `app/services/auth_service.py`.
+O BAT, sem parâmetros, mede **todos os services** (`--cov=app.services`) e
+executa todos os testes estruturais. Para selecionar arquivo e cobertura:
+
+```powershell
+.\iniciar_testes_estruturais.bat test_file=test_auth_service.py coverage_service=auth_service
+```
+
+`test_file` é relativo a `tests/estruturais` e pode incluir subpastas.
+`coverage_service` é o nome do arquivo em `app/services`, sem `.py`.
+Os dois parâmetros são opcionais, independentes e podem ser passados em qualquer ordem.
+Por exemplo, `coverage_service=task_service` sozinho executa todos os testes
+estruturais, mas mede somente `task_service.py`. `test_file=test_auth_service.py`
+sozinho executa esse arquivo e mede todos os services.
+Services sem testes podem apresentar cobertura baixa ou zero; isso é esperado.
+Cada execução substitui o relatório HTML anterior.
 `pytest-cov` está declarado em `requirements-dev.txt`; instale esse arquivo
 antes da execução direta caso ainda não tenha as dependências.
 
 `tests/estruturais/test_auth_service.py` chama `register` e `login` diretamente,
 sem HTTP. Os mocks substituem Repository, geração e verificação de hash e
 emissão de JWT, permitindo controlar as respostas e verificar chamadas.
-A fixture `application` de `tests/conftest.py` é reutilizada para configurar
-o SQLite temporário antes dos imports: seu preparo pode acessar esse banco
-isolado, mas as operações dos Services usam apenas o Repository simulado.
+Os testes estruturais usam apenas a fixture `test_settings` de `tests/conftest.py`,
+que configura as variáveis de ambiente antes dos imports, sem abrir banco ou
+criar tabelas. A fixture `application` fica reservada aos testes funcionais.
+As operações dos Services nos testes estruturais usam apenas o Repository simulado.
 Não utiliza o banco principal nem a fixture HTTP `client`. O hash fictício
 do módulo é criado normalmente no import; sua verificação nos testes é simulada.
 
-Os nove casos verificam:
+Os cinco exemplos principais, comentados para leitura em aula, verificam:
 
 - E-mail disponível: gera hash e salva os dados com esse hash.
 - E-mail ocupado: lança erro e não gera hash nem salva.
 - Usuário inexistente: verifica o hash fictício e não emite token.
 - Senha incorreta: rejeita o login sem emitir token.
 - Login válido: emite token para o ID correto e retorna tipo `bearer`.
-- Duplicidade durante a persistência: converte a restrição de `users.email`
-  em `EmailAlreadyExistsError`, preservando a causa.
-- Outros erros de integridade: propaga o erro original para origem não SQLite,
-  outro código SQLite ou outra coluna com restrição única (três casos).
 
-Na verificação de implementação, os nove casos passaram com 100% das 32
-instruções e dos 6 desvios medidos, sem linhas ou desvios pendentes.
-Isso não significa testar todas as combinações: cobertura de branches observa
+Os cinco testes passaram com cobertura combinada de linhas e branches de 82%.
+Para simplificar a atividade, foram removidos os quatro cenários de erro de
+integridade na persistência. O bloco `except IntegrityError` (linhas 38–47
+na versão verificada) ficou sem cobertura, incluindo conversão de duplicidade
+simultânea e propagação de outros erros. Não foram alteradas as regras do Service.
+Cobertura de branches observa
 as alternativas do fluxo, mas não garante todas as combinações de condições
 de um `and`/`or`, todos os dados de entrada ou todas as sequências de execução.
 Estes testes também não validam Argon2, JWT real ou concorrência real no banco:

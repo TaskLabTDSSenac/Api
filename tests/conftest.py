@@ -5,25 +5,30 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture(scope="session")
-def application(tmp_path_factory):
-    # Configure antes de importar a API: o lifespan usa essa mesma engine.
+def test_settings(tmp_path_factory):
+    # Apenas configura variáveis: não abre banco nem cria tabelas.
     database = tmp_path_factory.mktemp("tasklab_testes") / "testes.db"
     with pytest.MonkeyPatch.context() as environment:
         environment.setenv("DATABASE_URL", f"sqlite:///{database.as_posix()}")
         environment.setenv("JWT_SECRET_KEY", secrets.token_hex(32))
         environment.setenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60")
+        yield database
 
-        from app.main import app
-        from app.database import Base, engine
 
-        # Impede executar a limpeza se a engine não for a de testes.
-        assert engine.url.database == database.as_posix()
-        try:
-            # Limpa somente uma vez, antes do primeiro teste da sessão.
-            Base.metadata.drop_all(bind=engine)
-            yield app
-        finally:
-            engine.dispose()
+@pytest.fixture(scope="session")
+def application(test_settings):
+    # Somente os testes funcionais precisam preparar a aplicação e o banco.
+    from app.main import app
+    from app.database import Base, engine
+
+    # Impede executar a limpeza se a engine não for a de testes.
+    assert engine.url.database == test_settings.as_posix()
+    try:
+        # Limpa somente uma vez, antes do primeiro teste da sessão.
+        Base.metadata.drop_all(bind=engine)
+        yield app
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture
