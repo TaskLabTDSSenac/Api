@@ -1,8 +1,10 @@
 """Testes diretos do Service: preparar, executar e verificar."""
 
+import sqlite3
 from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.exceptions import EmailAlreadyExistsError, InvalidCredentialsError
 from app.schemas.auth_schema import LoginRequest
@@ -81,6 +83,42 @@ def test_cadastro_com_email_duplicado(modulo_auth_service):
     # Confere se register também deixou de chamar create. Não impede uma chamada;
     # apenas faz o teste falhar se ela já tiver acontecido.
     repository.create.assert_not_called()
+
+
+def test_cadastro_com_conflito_de_email_no_banco(modulo_auth_service):
+    repository = Mock(spec=modulo_auth_service.UserRepository)
+    repository.get_by_email.return_value = None
+    erro_sqlite = sqlite3.IntegrityError("UNIQUE constraint failed: users.email")
+    erro_sqlite.sqlite_errorcode = sqlite3.SQLITE_CONSTRAINT_UNIQUE
+    erro_banco = IntegrityError("INSERT", {}, erro_sqlite)
+    repository.create.side_effect = erro_banco
+    service = modulo_auth_service.AuthService(repository)
+    dados = UserCreate(name="Aluno Teste", email="aluno@example.com", password="Senha123")
+
+    with patch.object(modulo_auth_service, "hash_password", return_value="hash-simulado"):
+        with pytest.raises(EmailAlreadyExistsError) as erro:
+            service.register(dados)
+
+    assert erro.value.__cause__ is erro_banco
+    repository.create.assert_called_once_with(dados.name, dados.email, "hash-simulado")
+
+
+def test_cadastro_propaga_erro_de_integridade_nao_relacionado_a_email(modulo_auth_service):
+    repository = Mock(spec=modulo_auth_service.UserRepository)
+    repository.get_by_email.return_value = None
+    erro_sqlite = sqlite3.IntegrityError("CHECK constraint failed: users.name")
+    erro_sqlite.sqlite_errorcode = sqlite3.SQLITE_CONSTRAINT_CHECK
+    erro_banco = IntegrityError("INSERT", {}, erro_sqlite)
+    repository.create.side_effect = erro_banco
+    service = modulo_auth_service.AuthService(repository)
+    dados = UserCreate(name="Aluno Teste", email="aluno@example.com", password="Senha123")
+
+    with patch.object(modulo_auth_service, "hash_password", return_value="hash-simulado"):
+        with pytest.raises(IntegrityError) as erro:
+            service.register(dados)
+
+    assert erro.value is erro_banco
+    repository.create.assert_called_once_with(dados.name, dados.email, "hash-simulado")
 
 
 def test_login_com_usuario_inexistente(modulo_auth_service):
