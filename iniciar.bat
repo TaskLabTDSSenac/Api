@@ -1,7 +1,6 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "DATABASE_URL=sqlite:///tasklab.db"
 
 if not exist ".venv\Scripts\python.exe" (
     echo Criando o ambiente virtual...

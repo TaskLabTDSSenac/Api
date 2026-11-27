@@ -147,6 +147,8 @@ DATABASE_URL=sqlite:///C:/dados/tasklab.db
 ```
 
 A pasta escolhida deve existir. Variáveis de ambiente têm prioridade sobre `.env`.
+O `iniciar.bat` respeita essa configuração; sem `DATABASE_URL`, permanece o banco
+`tasklab.db` na raiz da API.
 Caminhos SQLite relativos personalizados são relativos à pasta de execução.
 Cada requisição recebe uma sessão, fechada ao terminar. Cada conexão SQLite habilita
 `PRAGMA foreign_keys=ON`. Os timestamps são gerados em UTC; o SQLite armazena os valores
@@ -154,6 +156,29 @@ sem informação de fuso, portanto devem ser interpretados como UTC.
 `updated_at` é atualizado nas alterações feitas pelo SQLAlchemy.
 
 `.venv`, `.env`, bancos `.db` e seus arquivos auxiliares são ignorados pelo Git.
+
+### SQLite no volume do Railway
+
+Vincule o volume ao serviço da API com **Mount Path `/data`**. Nas variáveis
+desse serviço, configure:
+
+```dotenv
+DATABASE_URL=sqlite:////data/tasklab.db
+```
+
+São quatro barras após `sqlite:`: o caminho Linux é absoluto, `/data/tasklab.db`.
+Faça um novo deploy após configurar a variável. Não é necessário ter um `.env`
+no Railway: a API também lê as variáveis de ambiente do serviço.
+
+O volume fica disponível quando o serviço inicia. A criação das tabelas já
+ocorre no lifespan da API, não durante o build. A inicialização cria somente
+tabelas ausentes e preserva os registros existentes. Veja a
+[documentação de volumes do Railway](https://docs.railway.com/volumes).
+
+O banco anterior não é copiado automaticamente para o novo caminho. Um volume
+sem banco começa vazio; para manter dados anteriores é necessário transferir
+o banco separadamente, com a aplicação parada. O código não apaga nem move o
+banco antigo ao mudar `DATABASE_URL`.
 
 ## Fluxo do cadastro
 
@@ -557,10 +582,215 @@ teste; os dados permanecem disponíveis para os próximos testes da sessão. O b
 Novos testes devem usar essa fixture e evitar importar a aplicação no topo
 dos arquivos, antes de configurar o ambiente isolado.
 
-Há apenas um exemplo: `tests/test_cadastro.py`, **CT-02 — Cadastro com senha
-menor que 8 caracteres**. Ele envia `POST /auth/register` com senha `123456`
-e espera **HTTP 422**, conforme o contrato correto.
+Os defeitos didáticos foram corrigidos em 13/11/2026. Cadastro exige nome de
+3 a 150 caracteres após trim e senha de 8 a 128 caracteres. Títulos exigem
+3 a 150 caracteres após trim tanto na criação quanto na edição. A edição
+persiste a descrição, a segunda conclusão retorna 400 e a exclusão remove
+a tarefa. Os clientes voltaram a comparar a confirmação das senhas.
+Registros antigos não foram alterados ou apagados automaticamente.
 
-Com o defeito intencional atual, a API retorna **201** e o teste aparece como
-**FAILED** (`assert 201 == 422`). Isso demonstra a detecção do defeito; a regra
-de negócio não foi corrigida nem o teste marcado para ignorar a falha.
+O arquivo `tests/test_cadastro.py` atualmente verifica cadastro válido e login.
+Embora o nome do primeiro teste mencione senha curta, seu corpo usa 8 caracteres
+e espera 201. Ele foi preservado; não comprova a rejeição de senhas curtas.
+
+## Testes estruturais do AuthService
+
+Não é necessário iniciar API, Site ou App. Na raiz da API, execute:
+
+```powershell
+.\iniciar_testes_estruturais.bat
+```
+
+O script usa o Python da `.venv`, instala `requirements-dev.txt` e executa
+somente `tests/estruturais/`. Mostra cobertura de linhas e desvios no terminal,
+incluindo eventuais linhas não cobertas, e preserva o código de saída do pytest.
+Abra `htmlcov_estruturais/index.html` no navegador para consultar o relatório.
+
+Para executar diretamente, sem a pausa do BAT:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/estruturais/ -v --cov=app.services.auth_service --cov-branch --cov-report=term-missing --cov-report=html:htmlcov_estruturais
+```
+
+Esse comando direto mede exclusivamente `app/services/auth_service.py`.
+O BAT, sem parâmetros, mede **todos os services** (`--cov=app.services`) e
+executa todos os testes estruturais. Para selecionar arquivo e cobertura:
+
+```powershell
+.\iniciar_testes_estruturais.bat test_file=test_auth_service.py coverage_service=auth_service
+```
+
+`test_file` é relativo a `tests/estruturais` e pode incluir subpastas.
+`coverage_service` é o nome do arquivo em `app/services`, sem `.py`.
+Os dois parâmetros são opcionais, independentes e podem ser passados em qualquer ordem.
+Por exemplo, `coverage_service=task_service` sozinho executa todos os testes
+estruturais, mas mede somente `task_service.py`. `test_file=test_auth_service.py`
+sozinho executa esse arquivo e mede todos os services.
+Services sem testes podem apresentar cobertura baixa ou zero; isso é esperado.
+Cada execução substitui o relatório HTML anterior.
+`pytest-cov` está declarado em `requirements-dev.txt`; instale esse arquivo
+antes da execução direta caso ainda não tenha as dependências.
+
+`tests/estruturais/test_auth_service.py` chama `register` e `login` diretamente,
+sem HTTP. Os mocks substituem Repository, geração e verificação de hash e
+emissão de JWT, permitindo controlar as respostas e verificar chamadas.
+Os testes estruturais usam apenas a fixture `test_settings` de `tests/conftest.py`,
+que configura as variáveis de ambiente antes dos imports, sem abrir banco ou
+criar tabelas. A fixture `application` fica reservada aos testes funcionais.
+As operações dos Services nos testes estruturais usam apenas o Repository simulado.
+Não utiliza o banco principal nem a fixture HTTP `client`. O hash fictício
+do módulo é criado normalmente no import; sua verificação nos testes é simulada.
+
+Os cinco exemplos principais, comentados para leitura em aula, verificam:
+
+- E-mail disponível: gera hash e salva os dados com esse hash.
+- E-mail ocupado: lança erro e não gera hash nem salva.
+- Usuário inexistente: verifica o hash fictício e não emite token.
+- Senha incorreta: rejeita o login sem emitir token.
+- Login válido: emite token para o ID correto e retorna tipo `bearer`.
+
+Os cinco testes passaram com cobertura combinada de linhas e branches de 82%.
+Para simplificar a atividade, foram removidos os quatro cenários de erro de
+integridade na persistência. O bloco `except IntegrityError` (linhas 38–47
+na versão verificada) ficou sem cobertura, incluindo conversão de duplicidade
+simultânea e propagação de outros erros. Não foram alteradas as regras do Service.
+Cobertura de branches observa
+as alternativas do fluxo, mas não garante todas as combinações de condições
+de um `and`/`or`, todos os dados de entrada ou todas as sequências de execução.
+Estes testes também não validam Argon2, JWT real ou concorrência real no banco:
+essas dependências são simuladas para verificar as decisões do Service.
+Não foram adicionadas exclusões de cobertura nem alteradas regras de negócio.
+
+## Testes de carga: painel e execução automatizada
+
+Os dois modos são independentes. A API deve estar rodando em outro terminal;
+nenhum dos iniciadores de carga inicia ou encerra a API. Use uma conta de teste
+e seu `access_token` válido, sem incluir o prefixo `Bearer` ao informar o token.
+As rotas de perfil e tarefas exigem JWT; token expirado ou inválido gera falhas.
+
+### Fluxo atual pelo painel — preservado
+
+```powershell
+.\iniciar_teste_carga.bat
+```
+
+Solicita o token conforme o comportamento anterior e abre o Locust usando
+`load_tests/locustfile.py`. No painel do navegador, configure usuários, entrada
+por segundo e duração, clique em START e acompanhe os resultados. Esse BAT,
+o locustfile e os arquivos de carga dos alunos não foram modificados.
+
+### Novo fluxo automatizado — sem painel
+
+```powershell
+.\iniciar_teste_carga_aut.bat
+```
+
+Reutiliza `.venv\Scripts\python.exe`, instala Locust caso ausente e solicita
+`TASKLAB_TOKEN` com entrada visível no terminal se a variável não estiver definida. Depois
+executa automaticamente, em sequência e em processos separados:
+
+1. `GET /users/me`, com relatório `load_tests_automatizados/relatorios/perfil.html`.
+2. `GET /tasks`, com relatório `load_tests_automatizados/relatorios/tarefas.html`.
+
+Para executar somente uma rota:
+
+```powershell
+.\iniciar_teste_carga_aut.bat perfil
+```
+
+Executa somente `GET /users/me` e atualiza apenas o relatório `perfil.html`.
+
+```powershell
+.\iniciar_teste_carga_aut.bat tarefas
+```
+
+Executa somente `GET /tasks` e atualiza apenas o relatório `tarefas.html`.
+Um parâmetro inválido mostra as opções aceitas e encerra sem executar a carga.
+
+Os testes são descobertos automaticamente pelos arquivos `carga_*.py` na pasta
+`load_tests_automatizados`, em ordem alfabética. Para adicionar um cenário,
+crie, por exemplo, `carga_estatisticas.py` com sua classe de usuário, carga e
+critérios. Ele poderá ser executado com:
+
+```powershell
+.\iniciar_teste_carga_aut.bat estatisticas
+```
+
+Esse comando funciona depois de criar o arquivo. Não é necessário cadastrar
+a rota no executor nem usar tags: o nome do arquivo identifica o teste.
+O endpoint é definido dentro do próprio arquivo de carga.
+
+Sem parâmetro, todos os arquivos encontrados são executados, mesmo se um anterior reprovar ou apresentar erro.
+Os relatórios de mesmo nome são substituídos na próxima execução; o diretório
+é criado automaticamente e os arquivos gerados são ignorados pelo Git.
+O token é transmitido pelo ambiente e no cabeçalho Authorization das requisições,
+sem aparecer nos argumentos de processo ou nos relatórios gerados. Ao informar
+o token manualmente, ele fica visível no terminal.
+
+### Configuração e critérios
+
+Cada arquivo (`carga_perfil.py` e `carga_tarefas.py`) possui seus próprios
+parâmetros. Não há mais um módulo `configuracao.py`. Os valores iniciais são:
+
+- Meta: **1000 usuários simultâneos**.
+- Entrada: **20 usuários por segundo**, controlada por `LoadTestShape`.
+- Duração: **60 segundos por rota, incluindo a entrada gradual**.
+- Espera entre tarefas: `between(1, 2)` segundos.
+- Host: `http://127.0.0.1:8000`.
+- Timeout por requisição: 10 segundos.
+
+Em condições normais, a entrada até 1000 usuários leva aproximadamente 50 segundos;
+o restante dos 60 segundos mantém a carga. A duração não é 60 segundos adicionais
+após atingir a meta. O tempo de iniciar processos e gerar relatórios é adicional.
+Cada arquivo de rota define sua própria classe `CargaAutomatizada`.
+Altere `usuarios`, `entrada_por_segundo` e `duracao_segundos` nessa classe
+para configurar somente aquele cenário. Na classe de usuário do mesmo arquivo,
+ajuste `host`, `wait_time = between(1, 2)` e o `timeout=10` da requisição.
+O executor não sobrescreve o host nem a duração definidos em cada teste.
+Nenhuma estatística é reiniciada ao terminar a entrada gradual.
+
+Cada arquivo de carga possui sua própria função `avaliar_resultado`.
+Os limites ficam no início do arquivo, em `P95_MAXIMO_MS` e
+`FALHAS_MAXIMAS_PERCENTUAL`, e podem ser diferentes para cada rota.
+Não há mais um módulo `criterios.py`. A aprovação ocorre somente quando:
+
+- Há pelo menos uma requisição executada.
+- p95 da execução inteira é **menor ou igual a 500 ms**.
+- Percentual de falhas é **menor ou igual a 1%**.
+- Não ocorreram exceções nas tarefas nem erros internos identificados pelo Locust.
+
+Cada requisição deve retornar HTTP 200. Outros status, redirecionamentos e erros
+de conexão são registrados como falhas, sem incluir corpo ou cabeçalhos nos erros.
+O percentual é calculado por `falhas / requisições * 100`; a decisão usa o valor
+sem arredondar, embora o resumo mostre duas casas decimais. O p95 usa o histograma
+de tempos do Locust para toda a execução, não apenas a janela recente.
+
+Durante cada teste, o terminal atualiza apenas o tempo decorrido na mesma linha.
+Esse tempo inclui a inicialização do Locust e a geração do relatório.
+As tabelas periódicas do Locust não são exibidas.
+Ao terminar cada rota, o terminal mostra requisições, falhas, percentual de falhas,
+p95, exceções e **APROVADO/REPROVADO**. O executor apresenta um resumo final:
+código de saída 0 somente se todas as rotas selecionadas passarem e gerarem relatório; diferente de 0
+se qualquer uma reprovar ou apresentar erro. O executor aguarda cada processo
+terminar; a duração da carga é controlada pelo `LoadTestShape` de cada arquivo.
+
+### Arquivos do novo modo
+
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `carga_perfil.py` | Consulta de perfil, parâmetros de carga e critérios de aprovação. |
+| `carga_tarefas.py` | Listagem de tarefas, parâmetros de carga e critérios de aprovação. |
+| `executar_carga.py` | Descobre `carga_*.py` e executa o selecionado ou todos em sequência. |
+| `relatorios/` | Relatórios HTML separados, gerados pelo Locust. |
+| `iniciar_teste_carga_aut.bat` | Prepara o ambiente e chama o executor. |
+
+É possível conferir a descoberta das classes sem iniciar a carga:
+
+```powershell
+.\.venv\Scripts\python.exe -m locust -f load_tests_automatizados/carga_perfil.py --list
+.\.venv\Scripts\python.exe -m locust -f load_tests_automatizados/carga_tarefas.py --list
+```
+
+Esses comandos apenas carregam os arquivos e listam seus usuários; não fazem
+requisições nem geram relatórios de desempenho. A implementação foi conferida
+com Locust 2.47.0, sem executar a carga completa de 1000 usuários.
